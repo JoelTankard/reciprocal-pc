@@ -227,148 +227,161 @@ quality, strictness, decode speed, or bounded state.
 
 ## Linear Execution Path
 
-### 1. Freeze the Nanochat SFT Control
+### 1. Freeze and Reproduce the Release
 
-- Pin nanochat commit.
-- Reproduce `runs/speedrun.sh` on rented GPUs.
+- Hash the source manifest, tokenizer, data manifests, configuration, and
+  retained Phase827 checkpoint.
+- Load the checkpoint through the public release adapter on CPU and CUDA.
+- Re-evaluate the frozen validation rows and match the recorded 5k metrics.
+- Resume for one update and prove model, trainer, optimizer, schedule, and
+  strict counters remain continuous.
+
+Exit gate: exact checkpoint reload, metric reproduction, and a resumable
+`global_backprops=0`, `forward_weight_transpose_reads=0` update.
+
+### 2. Make Exact Retraining Boring
+
+- Extract one supported production trainer around `create_reciprocal_pc()`.
+- Freeze the NanoChat tokenizer and BOS best-fit loader.
+- Record unique tokens, total exposures, row identity, and batch order.
+- Save atomic checkpoints containing model, trainer, optimizer, schedule, RNG,
+  and data-cursor state.
+- Add restart and interruption drills before any long run.
+
+Exit gate: two independent short runs and one interrupted/resumed run produce
+identical measured rows and checkpoint hashes.
+
+### 3. Reproduce the 5k Training Curve
+
+- Start from the exact released initialization and seed.
+- Evaluate only at the five original 1k milestones.
+- Compare every measured row with the authenticated Phase827 and matched-GPT
+  curves.
+- Treat any unexplained numerical drift as a release blocker.
+
+Exit gate: the complete measured curve and final checkpoint reproduce within a
+preregistered numerical tolerance.
+
+### 4. Profile Before Optimizing
+
+- Measure training tokens/s, peak GPU memory, checkpoint time, prefill, decode,
+  and recurrent-state bytes.
+- Separate model weights, optimizer state, training-only reciprocal state, and
+  temporary buffers.
+- Fuse or compile only operations that preserve logits, recurrent state, local
+  update tensors, and strict counters.
+
+Exit gate: a reproducible resource table plus at least one verified
+semantics-preserving performance improvement.
+
+### 5. Extend the Matched Base-Language Run
+
+- Train ReciprocalPC and a matched GPT control at the same tokenizer, rows,
+  exposures, validation set, and schedule horizon.
+- Use measured checkpoints at 10k, 20k, and 50k; do not splice the 5k schedule.
+- Track BPB and exact-token accuracy together.
+- Stop if quality flattens or stability degrades before spending the full
+  budget.
+
+Exit gate: a trustworthy longer-horizon Pareto curve. Scaling is not justified
+by the 5k endpoint alone.
+
+### 6. Resolve Only Measured Bottlenecks
+
+- Keep the released model frozen as the parent.
+- Preregister one causal mechanism and one promotion gate per experiment.
+- Prioritize representation and ranking only if the short-token accuracy gap
+  remains operationally important at the longer horizon.
+- Reject duplicate, target-leaking, exact-credit, replay-heavy, and
+  parameter-only variants before GPU work.
+
+Exit gate: a candidate beats the parent on the sealed BPB/accuracy frontier
+without changing data, exposure, or strict-credit accounting.
+
+### 7. Freeze the NanoChat Chat Control
+
+- Pin one NanoChat commit and reproduce its base-pretraining and SFT pipeline.
 - Save base and SFT checkpoints.
-- Freeze tokenizer, data, evaluator, metrics, and hashes.
-- Measure data, exposure, compute, speed, and memory.
+- Freeze tokenizer, chat rendering, data, evaluator, metrics, and hashes.
+- Measure unique tokens, exposures, compute, speed, and memory.
 
-Exit gate: one reproducible target row and checkpoint.
+Exit gate: one reproducible NanoChat base row and one reproducible SFT target.
 
-### 2. Add Conversation Training to Current ReciprocalPC
+### 8. Add Strict-Local Conversation SFT
 
-- Reuse the frozen nanochat tokenizer and chat special tokens.
-- Render the exact same conversations.
-- Compute loss only on the same target tokens as nanochat SFT.
-- Add strict local SFT updates without global backpropagation.
-- Support deterministic multi-turn token generation.
-- Do not build CLI or web UI.
+- Reuse the frozen NanoChat tokenizer and chat special tokens.
+- Render the exact same conversations and supervise the same assistant tokens.
+- Add local SFT updates without global backpropagation.
+- Support deterministic multi-turn generation and correct stop behavior.
 
-Exit gate: current small model completes SFT, generates valid assistant turns,
-and preserves strict `0/0` counters.
+Exit gate: ReciprocalPC completes matched SFT, emits valid assistant turns, and
+preserves strict `0/0` counters.
 
-### 3. Close the Small-Scale Base and Chat Gaps
+### 9. Fix Prefill
 
-- Continue architectural credit-assignment research.
-- Compare base quality before SFT.
-- Compare chat quality after identical SFT.
-- Reject replay-heavy or parameter-only explanations.
-- Preserve Phase298-style bounded state.
+- Compute token-local prompt features in parallel.
+- fuse recurrent and predictive-memory kernels;
+- use exact chunked or associative scans where recurrence permits;
+- prove output and final-state equivalence against the sequential reference;
+- benchmark `512`, `2K`, `8K`, and `32K` prompt lengths.
 
-Exit gate: ReciprocalPC beats its matched small GPT control on both base and
-chat quality at equal or lower unique tokens and exposures.
+Exit gate: practical time-to-first-token with unchanged quality and state.
 
-### 4. Fix Prefill
+### 10. Scale in Measured Steps
 
-- Build parallel or chunked prefill.
-- Fuse the production kernels.
-- Preserve exact logits and state.
-- Measure time-to-first-token on realistic conversations.
+Run `20M-30M`, `124M`, `355M`, and `774M` pilots before approaching the pinned
+NanoChat parameter class. At each size:
 
-Exit gate: at least `50K` prefill tok/s at current scale, with competitive
-decode and unchanged quality.
-
-### 5. Run a 20M-30M Scaling Pilot
-
-- Parameterize width, depth, transition width, and memory dimensions.
-- Verify local credit remains active at every layer.
-- Measure how recurrent state and training-only state scale.
-- Train matched GPT and ChatPC controls.
-
-Exit gate: quality improves monotonically without memory, prefill, or credit
-collapse.
-
-### 6. Build a 124M ChatPC
-
-- Train on real contiguous web text.
-- Apply the exact frozen nanochat SFT stage.
-- Evaluate base BPB/CORE and final chat metrics.
-- Quantize to INT8 and INT4.
-- Benchmark consumer GPU and CPU deployment.
-
-Exit gate: outperform the matched 124M nanochat-style chat control while using
-equal or fewer unique tokens and exposures.
-
-### 7. Build a 355M ChatPC
-
-- Confirm learning advantage survives scale.
-- Improve long-conversation retention.
-- Introduce optimizer offload or sharding.
-- Keep recurrent state bounded.
-
-Exit gate: monotonic improvement from `30M` to `124M` to `355M`.
-
-### 8. Build a 774M ChatPC
-
-- Validate production quantization.
-- Measure memory, latency, and energy on local hardware.
-- Test long prompts where KV-cache growth becomes expensive.
-- Run the full frozen chat suite.
-
-Exit gate: retain better data efficiency and clear long-context memory
-advantage.
-
-### 9. Challenge the Pinned Nanochat SFT Model
-
-- Scale ReciprocalPC to the control's approximate parameter class.
-- Rent the required multi-GPU training node.
-- Train from scratch on the frozen pretraining corpus.
-- Apply identical SFT.
-- Run the frozen evaluator.
-- Run same-hardware memory and speed benchmarks.
+- train a matched GPT control;
+- measure base quality before SFT and chat quality after identical SFT;
+- verify local credit remains active at every layer;
+- measure training state, inference state, prefill, decode, and peak memory;
+- stop when quality, stability, or efficiency fails to improve monotonically.
 
 Final success:
 
 ```text
-ChatPC chat quality > pinned nanochat SFT quality
-AND ChatPC unique tokens < nanochat unique tokens
-AND ChatPC exposures <= nanochat exposures
-AND ChatPC matched-context inference memory < nanochat memory
+ReciprocalPC chat quality > pinned NanoChat SFT quality
+AND ReciprocalPC unique tokens < NanoChat unique tokens
+AND ReciprocalPC exposures <= NanoChat exposures
+AND matched-context inference memory < NanoChat memory
 AND strict counters = 0/0
 ```
 
 ## Training-Memory Work
 
-One 24GB RTX 3090 is insufficient for efficient final-scale training with the
-current full optimizer and held-displacement state. Final training can use
-rented GPUs.
+One 24GB RTX 3090 can validate the released 24M-parameter model but is not the
+assumed final-scale training target. Before large scaling:
 
-Before large scaling:
-
-- use BF16 or FP16 compute;
-- fuse local updates;
-- release gradients layer by layer;
+- use BF16 or FP16 compute where numerical checks pass;
+- fuse local updates and release intermediates layer by layer;
 - test 8-bit optimizer moments;
 - replace permanent full-model displacement copies with blockwise charging;
-- shard checkpoints;
-- support CPU optimizer offload;
+- shard checkpoints and support CPU optimizer offload;
 - support distributed training without changing update semantics.
 
-Inference, not training, must fit the intended local device.
+Inference, not final training, must fit the intended local device.
 
 ## Rules for Every Step
 
-- Create a dedicated phase branch before edits.
+- Create a dedicated branch before experimental edits.
 - Preregister architecture and promotion gates.
-- Compare against a matched GPT/chat control.
+- Compare against a matched GPT or chat control.
 - Record pretraining and SFT tokens separately.
 - Never call replay a learning-efficiency win.
 - Do not tune parameters after tiny or absent progress.
-- Preserve rejected mechanisms and measured ledgers.
-- End every phase with a clean committed branch.
-- Record checkpoint, dataset, tokenizer, evaluator, and result hashes.
+- Preserve measured rejections and decision receipts.
+- Record checkpoint, dataset, tokenizer, evaluator, source, and result hashes.
 - Keep base capability and chat behavior as separate measured stages.
 
 ## Immediate Priorities
 
-1. Continue current architectural learning research.
-2. Freeze the nanochat speedrun SFT control.
-3. Add exact nanochat conversation SFT semantics to ReciprocalPC.
-4. Fix prefill before large scaling.
-5. Prove a joint base-plus-chat win at small scale.
-6. Start the `20M-30M` scaling pilot.
+1. Verify the retained Phase827 checkpoint through this release.
+2. Reproduce one strict-local update and then the full 5k curve.
+3. Profile training, checkpointing, prefill, decode, and memory.
+4. Run a matched longer-horizon base-language comparison.
+5. Freeze NanoChat chat semantics only after the base model is reproducible.
+6. Scale only after a small matched base-plus-chat result passes every gate.
 
 End goal: a quantized local ChatPC model that beats the pinned nanochat SFT
 model, learns from less data, and uses substantially less long-context memory.

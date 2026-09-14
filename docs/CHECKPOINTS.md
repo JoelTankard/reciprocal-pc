@@ -1,14 +1,37 @@
-# Canonical Checkpoints
+# Phase827 Checkpoint
 
-Protected Windows directory: `D:/pfc_models/canonical_50k/`.
+The retained release checkpoint is:
 
-| File | Bytes | SHA-256 |
-| --- | ---: | --- |
-| `reciprocalpc-50k.pt` | `214269299` | `331c6eae03773795443c4b7b308b6164cc04760e46325528ec094dc5e9257fc5` |
-| `blue-exact-credit-pc-50k.pt` | `283631819` | `e7992f1f87fc0642983dd00bf255d6d91e5f21be20268569f44d5317e1ade6b1` |
-| `gpt-50k-model.pt` | `23083271` | `9fadeb0a8198b5b34a767025b612f4ef2a75480f352cb1f09f189e08e6617404` |
-| `gpt-50k-optimizer.pt` | `33613877` | `e1151d166567e5804f63ebc745591f5d41f6fc891e552ee81cf12c5d27c9bdcf` |
-| `gpt-50k-meta.json` | `1431` | `8653c203fb29047f1a7965f47ffa0e976361177a6c875bad9a1f9b3a1745b3ca` |
+| Property | Value |
+| --- | --- |
+| Windows path | `R:/reciprocal-pc/matched-accuracy/phase827-matched-accuracy-20260911-v1/inputs/phase827/phase827-step005000.pt` |
+| SHA-256 | `ab27c225ee0b5d082de0e6b772dca441fb55f4aa89c9a5734cf475f0545ad2ba` |
+| Update | `5,000` |
+| Token exposures | `10,240,000` |
+| Validation BPB | `1.4867165192023712` |
+| Exact-token accuracy | `0.23939993647535976` |
+| Global backprops | `0` |
+| Forward-weight transpose reads | `0` |
 
-Files are hard links on Windows `D:`. Deleting historical run paths does not
-delete canonical checkpoint bytes while these links remain.
+The checkpoint is not committed because it is a large binary artifact. Verify
+its hash before loading.
+
+```bash
+shasum -a 256 phase827-step005000.pt
+```
+
+Load through the public adapter:
+
+```python
+from pfc import load_reciprocal_pc_checkpoint
+
+model, trainer, metadata = load_reciprocal_pc_checkpoint(
+    "phase827-step005000.pt",
+    map_location="cpu",
+)
+```
+
+The adapter constructs the exact release configuration, loads both model and
+trainer state strictly, and rejects incompatible configuration or untied
+lexical state. Preserving trainer state is required for an exact training
+resume; loading only model weights is sufficient for inference.

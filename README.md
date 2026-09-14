@@ -1,47 +1,68 @@
 # ReciprocalPC
 
-Focused repository for improving strict predictive-coding language learning
-without global backpropagation.
+ReciprocalPC is a recurrent language model trained with strictly local reciprocal
+credit. The released model performs no end-to-end backpropagation, no exact
+block VJP, and no forward-weight transpose read.
 
-## Canonical models
+This repository is the clean Phase827 release. It contains the model, its local
+trainer, checkpoint loader, focused behavioral tests, and the measured release
+contract. Historical experiment machinery is intentionally excluded.
 
-| Model | Credit rule | 50k BPB | 50k accuracy |
-| --- | --- | ---: | ---: |
-| GPT-50k | Global backpropagation | `1.195398` | `0.436651` |
-| Blue exact-credit PC | Exact block VJPs, oracle | `1.277254` | `0.406250` |
-| ReciprocalPC | Learned local reciprocal paths | `1.283907` | `0.404540` |
+## Released model
 
-ReciprocalPC records `global_backprops=0` at every measured step. Blue is not
-the strict target: exact block VJPs make it an oracle for how much quality is
-lost by learned local credit transport.
+| Property | Value |
+| --- | ---: |
+| Width | 512 |
+| Recurrent layers | 2 |
+| FFN width | 1,040 |
+| Vocabulary | 32,768 |
+| Context length | 2,048 tokens |
+| Learned parameters | 23,930,434 |
+| Weight form | grouped ternary |
+| Global backprops | 0 |
+| Forward-weight transpose reads | 0 |
 
-## Research target
+The retained 5,000-update checkpoint reached validation BPB `1.4867165192` and
+exact-token accuracy `0.2393999365` after `10,240,000` token exposures. These are
+the measured Phase827 release values; later research architectures and their
+50k curves are not mixed into this release.
 
-Close the shared PC-to-GPT gap by improving representation and inference while
-keeping ReciprocalPC credit local. Use Blue to distinguish credit-transport
-failures from shared model failures. At 50k, ReciprocalPC retains `93.11%` of
-GPT BPB quality and `92.65%` of GPT accuracy quality.
+## Install
 
-## Repository map
-
-- `src/pfc/`: exact model and training implementation from the archived repo.
-- `tools/`: canonical Windows runners and focused diagnostics.
-- `data/curves/`: measured 100-step curves through 50k for all three models.
-- `configs/`: full final-row configuration snapshots for both PC models.
-- `docs/`: short model, baseline, checkpoint, findings, and experiment contracts.
-
-Render the canonical comparison:
-
-```bash
-uv run python tools/render_comparison.py
-```
-
-Run tests:
+Python 3.10 or newer is required.
 
 ```bash
 uv sync --extra dev
 uv run pytest -q
 ```
 
-Full historical experiments remain in
-`/Users/joel/ai/predictive-feature-correction`.
+## Use
+
+```python
+import torch
+from pfc import create_reciprocal_pc, load_reciprocal_pc_checkpoint
+
+model, trainer = create_reciprocal_pc()
+logits = model(torch.tensor([[32759, 1, 2, 3]], dtype=torch.long))
+
+model, trainer, metadata = load_reciprocal_pc_checkpoint(
+    "phase827-step005000.pt",
+    map_location="cpu",
+)
+```
+
+`create_reciprocal_pc()` always builds the released architecture. The loader
+rejects checkpoints whose model configuration, local-training configuration,
+projected observation matrix, or tied lexical endpoint differ from the release
+contract.
+
+## Documentation
+
+- `docs/MODELS.md`: architecture, inference, and local-credit path.
+- `docs/CHECKPOINTS.md`: retained checkpoint identity and loading contract.
+- `docs/EXPERIMENT_RULES.md`: fair-comparison and strict-credit gates.
+- `docs/path-to-gpt-2.md`: staged path from this research model to a chat model.
+- `configs/reciprocalpc-release-manifest.json`: source identity and release metrics.
+
+Internal `stage_reciprocal` keys and historical checkpoint tags remain unchanged
+for compatibility. The public model name is `ReciprocalPC`.
