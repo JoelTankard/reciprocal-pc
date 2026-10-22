@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-import hashlib
 import json
 from pathlib import Path
 
 import torch
 
 from pfc import (
+    GOLDEN_CHECKPOINT_SHA256,
+    GOLDEN_CHECKPOINT_URL,
     ReciprocalPC,
     ReciprocalPCTrainer,
     create_reciprocal_pc,
@@ -89,12 +90,16 @@ def test_release_checkpoint_round_trip(tmp_path) -> None:
             assert torch.equal(actual, expected), name
 
 
-def test_release_manifest_matches_packaged_files() -> None:
+def test_release_manifest_identifies_promoted_inference_artifact() -> None:
     root = Path(__file__).resolve().parents[1]
     manifest = json.loads(
         (root / "configs/reciprocalpc-release-manifest.json").read_text()
     )
 
-    for item in manifest["release_files"]:
-        actual = hashlib.sha256((root / item["path"]).read_bytes()).hexdigest()
-        assert actual == item["sha256"], item["path"]
+    assert manifest["schema"] == "golden-release-manifest.v1"
+    assert manifest["model"] == "Golden"
+    assert manifest["artifact"]["sha256"] == GOLDEN_CHECKPOINT_SHA256
+    assert manifest["artifact"]["url"] == GOLDEN_CHECKPOINT_URL
+    assert manifest["artifact"]["resumable"] is False
+    assert manifest["architecture"]["parameters"] == 23_930_435
+    assert manifest["historical_phase827_5k"]["current_golden"] is False

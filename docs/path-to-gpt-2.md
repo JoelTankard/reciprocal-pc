@@ -1,5 +1,13 @@
 # Path to the Nanochat Chat Model
 
+> Current-release note (2026-10-22): **Golden** is the public ReciprocalPC base
+> language model; **baseline** is the 36,700,242-parameter NanoChat control.
+> Golden is not chat-trained. Its inference-only 50k-to-49k interpolation and
+> measured reused-development scores are documented in [MODELS.md](MODELS.md),
+> [CHECKPOINTS.md](CHECKPOINTS.md) and [FINDINGS.md](FINDINGS.md). This document
+> is a future research roadmap, not evidence that its chat, speed or memory
+> targets have been met. Phase298/Phase827 measurements below are historical.
+
 ## Overall Goal
 
 Scale ReciprocalPC into a local-device chat model that outperforms the existing
@@ -229,15 +237,16 @@ quality, strictness, decode speed, or bounded state.
 
 ### 1. Freeze and Reproduce the Release
 
-- Hash the source manifest, tokenizer, data manifests, configuration, and
-  retained Phase827 checkpoint.
-- Load the checkpoint through the public release adapter on CPU and CUDA.
-- Re-evaluate the frozen validation rows and match the recorded 5k metrics.
-- Resume for one update and prove model, trainer, optimizer, schedule, and
-  strict counters remain continuous.
+- Hash the current Golden artifact and matched tokenizer assets against the
+  release manifest; retain native source version `ec993a3` provenance.
+- Load through `load_golden_checkpoint` on CPU and CUDA without restoring a
+  trainer. Re-evaluate the frozen rows with the 204,645 positive-byte mask.
+- Keep interpolation metrics separate from the unaveraged 50k reference.
+- Test a strict-local continuation only from a complete **unaveraged** training
+  checkpoint, never from `golden-inference.pt`.
 
-Exit gate: exact checkpoint reload, metric reproduction, and a resumable
-`global_backprops=0`, `forward_weight_transpose_reads=0` update.
+Exit gate: exact supported-device reload, measured metric reproduction, and
+separately proven unaveraged training-state continuity with strict `0/0` counters.
 
 ### 2. Make Exact Retraining Boring
 
@@ -251,16 +260,16 @@ Exit gate: exact checkpoint reload, metric reproduction, and a resumable
 Exit gate: two independent short runs and one interrupted/resumed run produce
 identical measured rows and checkpoint hashes.
 
-### 3. Reproduce the 5k Training Curve
+### 3. Reproduce the Unaveraged Training Curve
 
-- Start from the exact released initialization and seed.
-- Evaluate only at the five original 1k milestones.
-- Compare every measured row with the authenticated Phase827 and matched-GPT
-  curves.
-- Treat any unexplained numerical drift as a release blocker.
+- Start from the frozen native initialization, data order, seed and 50k schedule.
+- Evaluate actual saved milestones; compare raw runs with raw reference rows.
+- Reproduce the current inference transformation as a separate terminal
+  evaluation, preserving its 49k/50k input identities and subgroup regressions.
+- Keep the old Phase827 5k curve historical; do not splice its schedule or scores.
 
-Exit gate: the complete measured curve and final checkpoint reproduce within a
-preregistered numerical tolerance.
+Exit gate: the measured raw curve and separately labeled inference artifact
+reproduce within a preregistered numerical tolerance.
 
 ### 4. Profile Before Optimizing
 
@@ -376,10 +385,14 @@ Inference, not final training, must fit the intended local device.
 
 ## Immediate Priorities
 
-1. Verify the retained Phase827 checkpoint through this release.
-2. Reproduce one strict-local update and then the full 5k curve.
-3. Profile training, checkpointing, prefill, decode, and memory.
-4. Run a matched longer-horizon base-language comparison.
+1. Verify the Golden inference artifact and matched tokenizer assets against
+   their immutable release identities.
+2. Reproduce strict-local updates from complete unaveraged state using
+   `golden_local_update`; never resume the interpolated inference weights.
+3. Profile standalone weights, training carriers, native/RLS state, prefill and
+   decode. The 1.268x internal update result is not baseline or inference speed.
+4. Evaluate future candidates on independent data, preserving current reused-row
+   and subgroup-regression caveats rather than treating promotion as validation.
 5. Freeze NanoChat chat semantics only after the base model is reproducible.
 6. Scale only after a small matched base-plus-chat result passes every gate.
 

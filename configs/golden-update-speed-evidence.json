@@ -1,0 +1,39 @@
+{
+  "schema": "golden-update-speed-evidence.v1",
+  "source_summary_schema": "golden-rls-optimization-delivery.v1",
+  "status": "verified_execution_optimization_in_original_experiment",
+  "change": "Reuse native prefill once per Golden update instead of separate branch and trainer prefills",
+  "original_module_sha256": "0e5d0a2303d19f51c67feba3511b7fa728743973f369d5e43c9e767722c98319",
+  "module_hash_semantics": "Exact measured optimization/shared_prefill.py before package-relative import adaptation, not a hash of the packaged public module",
+  "trained_state_timing": {
+    "gpu": "NVIDIA A40",
+    "torch": "2.8.0+cu128",
+    "starting_checkpoint_step": 50000,
+    "tokens_per_update": 2048,
+    "rounds": 2,
+    "timed_updates_per_arm": 40,
+    "reference_seconds_per_update": 0.534744858074555,
+    "optimized_seconds_per_update": 0.4218560337249073,
+    "reference_tokens_per_second": 3829.8638482924216,
+    "optimized_tokens_per_second": 4854.736773388199,
+    "throughput_ratio": 1.2676003549193338,
+    "update_time_reduction_percent": 21.110782580710385,
+    "paired_speed_ratios": [1.2643500630039177, 1.270869456268238]
+  },
+  "equivalence": {
+    "outputs_and_gain_credit_exact": true,
+    "native_model_trainer_gain_optimizer_rng_exact_after_timing_rounds": true,
+    "actual_native_prefills_per_update": {"reference": 2, "optimized": 1},
+    "full_unaveraged_50k_restore_exact": true,
+    "trained_validation_loss_exact": true
+  },
+  "limits": [
+    "Short counterbalanced same-GPU internal benchmark, not a new 50k run",
+    "No NanoChat baseline speed comparison",
+    "Measured update speed includes production finite guards and synchronization; excludes validation, checkpoint and setup",
+    "Trained-state probe reuses frozen tail rows, not additional unique training data",
+    "Absolute memory includes paired benchmark models, not standalone deployment",
+    "Interpolation is separate and not part of this execution optimization",
+    "Does not establish inference speed"
+  ]
+}

@@ -124,6 +124,8 @@ def load_reciprocal_pc_checkpoint(
     payload = torch.load(Path(path), map_location="cpu", weights_only=False)
     if not isinstance(payload, dict):
         raise ValueError("ReciprocalPC checkpoint must contain a mapping")
+    if payload.get("schema") == "golden-drift-inference-only.v1" or payload.get("inference_only") is True:
+        raise ValueError("inference-only checkpoint cannot resume training; use load_golden_checkpoint")
     required = {"model_config", "trainer_config", "model", "trainer", "step"}
     missing = sorted(required.difference(payload))
     if missing:
